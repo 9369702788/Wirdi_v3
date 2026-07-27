@@ -1,6 +1,3 @@
-import 'dart:async';
-
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/models/quran_models.dart';
@@ -49,9 +46,7 @@ class _QuranScreenState extends State<QuranScreen> {
           if (snapshot.hasError || snapshot.data == null) {
             return _ErrorView(
               message: 'تعذر تحميل القرآن الكريم. تأكد من اتصال الإنترنت.',
-              onRetry: () => setState(
-                () => _future = QuranRepository.load(forceRefresh: true),
-              ),
+              onRetry: () => setState(() => _future = QuranRepository.load(forceRefresh: true)),
             );
           }
 
@@ -93,38 +88,22 @@ class _QuranScreenState extends State<QuranScreen> {
                   separatorBuilder: (_, __) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final surah = filtered[index];
-
                     return Card(
                       child: ListTile(
                         leading: CircleAvatar(
                           backgroundColor: const Color(0xFFE6F3F1),
                           child: Text(
                             '${surah.number}',
-                            style: const TextStyle(
-                              color: Color(0xFF0F766E),
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(color: Color(0xFF0F766E), fontWeight: FontWeight.bold),
                           ),
                         ),
-                        title: Text(
-                          surah.name,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        subtitle: Text(
-                          '${surah.englishName} - ${surah.ayahs.length} آية',
-                          textAlign: TextAlign.right,
-                        ),
+                        title: Text(surah.name, textAlign: TextAlign.right, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+                        subtitle: Text('${surah.englishName} - ${surah.ayahs.length} آية', textAlign: TextAlign.right),
                         trailing: const Icon(Icons.menu_book),
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                              builder: (_) => SurahReaderScreen(surah: surah),
-                            ),
+                            MaterialPageRoute(builder: (_) => SurahReaderScreen(surah: surah)),
                           );
                         },
                       ),
@@ -143,63 +122,31 @@ class _QuranScreenState extends State<QuranScreen> {
 class SurahReaderScreen extends StatefulWidget {
   final SurahModel surah;
 
-  const SurahReaderScreen({
-    super.key,
-    required this.surah,
-  });
+  const SurahReaderScreen({super.key, required this.surah});
 
   @override
   State<SurahReaderScreen> createState() => _SurahReaderScreenState();
 }
 
 class _SurahReaderScreenState extends State<SurahReaderScreen> {
-  final AudioPlayer _audioPlayer = AudioPlayer();
-
-  late final StreamSubscription<void> _audioCompleteSubscription;
-
   Set<String> _favoriteAyahs = {};
 
-  bool _isPlaying = false;
-  bool _isAudioLoading = false;
-
   String _uid(int ayahNumber) => '${widget.surah.number}_$ayahNumber';
-
-  String get _surahAudioUrl {
-    final surahNumber = widget.surah.number.toString().padLeft(3, '0');
-    return 'https://server8.mp3quran.net/afs/$surahNumber.mp3';
-  }
 
   @override
   void initState() {
     super.initState();
     _loadFavorites();
-
-    _audioCompleteSubscription = _audioPlayer.onPlayerComplete.listen((_) {
-      if (!mounted) return;
-      setState(() {
-        _isPlaying = false;
-        _isAudioLoading = false;
-      });
-    });
-  }
-
-  @override
-  void dispose() {
-    _audioCompleteSubscription.cancel();
-    _audioPlayer.dispose();
-    super.dispose();
   }
 
   Future<void> _loadFavorites() async {
     final favs = await UserProgressService.favoriteAyahs();
-    if (!mounted) return;
     setState(() => _favoriteAyahs = favs);
   }
 
   Future<void> _toggleFavorite(int ayahNumber) async {
     await UserProgressService.toggleFavoriteAyah(_uid(ayahNumber));
     final favs = await UserProgressService.favoriteAyahs();
-    if (!mounted) return;
     setState(() => _favoriteAyahs = favs);
   }
 
@@ -211,88 +158,18 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
     );
 
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'تم حفظ آخر قراءة: سورة ${widget.surah.name} - آية $ayahNumber',
-        ),
-      ),
+      SnackBar(content: Text('تم حفظ آخر قراءة: سورة ${widget.surah.name} - آية $ayahNumber')),
     );
   }
 
   Future<void> _markSurahReadToday() async {
     await UserProgressService.markPageRead();
     await UserProgressService.registerStreakCheckpoint();
-
     if (!mounted) return;
-
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('أُضيفت هذه القراءة إلى وردك اليومي 🌿'),
-      ),
+      const SnackBar(content: Text('أُضيفت هذه القراءة إلى وردك اليومي 🌿')),
     );
-  }
-
-  Future<void> _toggleAudio() async {
-    if (_isAudioLoading) return;
-
-    setState(() {
-      _isAudioLoading = true;
-    });
-
-    try {
-      if (_isPlaying) {
-        await _audioPlayer.pause();
-
-        if (!mounted) return;
-        setState(() {
-          _isPlaying = false;
-          _isAudioLoading = false;
-        });
-      } else {
-        await _audioPlayer.play(
-          UrlSource(_surahAudioUrl),
-        );
-
-        if (!mounted) return;
-        setState(() {
-          _isPlaying = true;
-          _isAudioLoading = false;
-        });
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _isPlaying = false;
-        _isAudioLoading = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('تعذر تشغيل التلاوة. تأكد من اتصال الإنترنت.'),
-        ),
-      );
-    }
-  }
-
-  Future<void> _stopAudio() async {
-    try {
-      await _audioPlayer.stop();
-
-      if (!mounted) return;
-      setState(() {
-        _isPlaying = false;
-        _isAudioLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isPlaying = false;
-        _isAudioLoading = false;
-      });
-    }
   }
 
   @override
@@ -306,20 +183,97 @@ class _SurahReaderScreenState extends State<SurahReaderScreen> {
         centerTitle: true,
         actions: [
           IconButton(
-            tooltip: _isPlaying ? 'إيقاف التلاوة مؤقتاً' : 'تشغيل التلاوة',
-            onPressed: _isAudioLoading ? null : _toggleAudio,
-            icon: _isAudioLoading
-                ? const SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : Icon(
-                    _isPlaying
-                        ? Icons.pause_circle_filled
-                        : Icons.play_circle_fill,
-                  ),
+            tooltip: 'أضف إلى الورد اليومي',
+            onPressed: _markSurahReadToday,
+            icon: const Icon(Icons.playlist_add_check),
           ),
-          IconButton(
-            tooltip: 'إيقاف التلاوة',
-            onPressed: _isPlaying || _isAudioLoading ? _stopAudio : 
+        ],
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.all(22),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(colors: [AppColors.primaryEmerald, Color(0xFF115E56)]),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              children: [
+                Text('سورة ${surah.name}', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('${surah.ayahs.length} آية', style: const TextStyle(color: AppColors.goldAccent, fontSize: 18)),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          ...surah.ayahs.map((ayah) {
+            final isFavorite = _favoriteAyahs.contains(_uid(ayah.number));
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      '${ayah.text}  ﴿${ayah.number}﴾',
+                      textDirection: TextDirection.rtl,
+                      textAlign: TextAlign.right,
+                      style: const TextStyle(fontSize: 24, height: 2, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => _bookmark(ayah.number),
+                          icon: const Icon(Icons.bookmark_border, color: AppColors.mutedText),
+                        ),
+                        IconButton(
+                          onPressed: () => _toggleFavorite(ayah.number),
+                          icon: Icon(
+                            isFavorite ? Icons.favorite : Icons.favorite_border,
+                            color: isFavorite ? AppColors.goldAccent : AppColors.mutedText,
+                          ),
+                        ),
+                        const Spacer(),
+                        Text('آية ${ayah.number}', style: const TextStyle(color: AppColors.mutedText, fontWeight: FontWeight.w600)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorView({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.wifi_off_rounded, size: 48, color: AppColors.mutedText),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            const SizedBox(height: 16),
+            ElevatedButton(onPressed: onRetry, child: const Text('إعادة المحاولة')),
+          ],
+        ),
+      ),
+    );
+  }
+}
